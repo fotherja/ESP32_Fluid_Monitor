@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ESP32 Dashboard</title>
+</head>
+<body>
+  <h1>ESP32 Dashboard</h1>
+
+  <button id="on">Turn On</button>
+  <button id="off">Turn Off</button>
+
+  <h2>24-Hour Data</h2>
+  <canvas id="myChart" width="600" height="300"></canvas>
+
+  <!-- load the UMD build so Chart is available as a global -->
+  <script src="/chart.umd.min.js"></script>
+  <!-- then your script -->
+  <script src="/script.js"></script>
+</body>
+</html>
