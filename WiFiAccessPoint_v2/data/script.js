@@ -1,10 +1,17 @@
         // --- CONFIGURATION ---
-        const DATA_POINT_INTERVAL_MINS = 5; 
+        const DATA_POINT_INTERVAL_MINS = 15; // Changed from 5 to 15 minutes
         const MAX_DATA_POINTS = (7 * 24 * 60) / DATA_POINT_INTERVAL_MINS; // 7 days of data
-        const TARGET_BARS = 24; // Aim for this many bars in aggregated views
+        
+        // Specific bar counts for different views
+        const BAR_COUNTS = {
+            6: 24,   // 6 hours: 24 bars (15 min each)
+            24: 24,  // 24 hours: 24 bars (1 hour each) 
+            72: 72,  // 3 days: 72 bars (1 hour each)
+            168: 7   // 7 days: 7 bars (1 day each)
+        };
 
         // --- STATE MANAGEMENT ---
-        let currentRangeHours = 2; // Default view is 2 hours
+        let currentRangeHours = 6; // Default view is now 6 hours
         let currentOffsetHours = 0; // Offset from the most recent data
         let masterData = []; // Store the full dataset from the device
 
@@ -106,15 +113,19 @@
 
             let chartData = [];
             let timeUnit = 'hour';
+            const targetBars = BAR_COUNTS[currentRangeHours];
 
             if (dataSlice.length > 0) {
-                if (currentRangeHours <= 6) { 
+                if (currentRangeHours === 6) {
+                    // 6 hours: Each bar is 15 minutes (24 bars total)
                     chartData = dataSlice.map((value, index) => {
                         const timeForPoint = new Date(now.getTime() - ((offsetPoints + (rangePoints - (index + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
                         return { x: timeForPoint.valueOf(), y: value };
                     });
-                } else {
-                    const pointsPerBar = Math.ceil(dataSlice.length / TARGET_BARS);
+                    timeUnit = 'hour';
+                } else if (currentRangeHours === 24) {
+                    // 24 hours: Each bar is 1 hour (24 bars total)
+                    const pointsPerBar = 4; // 4 points of 15 min each = 1 hour
                     
                     for (let i = 0; i < dataSlice.length; i += pointsPerBar) {
                         const chunk = dataSlice.slice(i, i + pointsPerBar);
@@ -123,7 +134,31 @@
                         const timeForChunk = new Date(now.getTime() - ((offsetPoints + (rangePoints - (i + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
                         chartData.push({ x: timeForChunk.valueOf(), y: sum });
                     }
-                    timeUnit = (currentRangeHours <= 24) ? 'hour' : 'day';
+                    timeUnit = 'hour';
+                } else if (currentRangeHours === 72) {
+                    // 3 days: Each bar is 1 hour (72 bars total)
+                    const pointsPerBar = 4; // 4 points of 15 min each = 1 hour
+                    
+                    for (let i = 0; i < dataSlice.length; i += pointsPerBar) {
+                        const chunk = dataSlice.slice(i, i + pointsPerBar);
+                        const sum = chunk.reduce((acc, val) => acc + val, 0);
+
+                        const timeForChunk = new Date(now.getTime() - ((offsetPoints + (rangePoints - (i + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
+                        chartData.push({ x: timeForChunk.valueOf(), y: sum });
+                    }
+                    timeUnit = 'hour';
+                } else if (currentRangeHours === 168) {
+                    // 7 days: Each bar is 1 day (7 bars total)
+                    const pointsPerBar = 96; // 96 points of 15 min each = 1 day
+                    
+                    for (let i = 0; i < dataSlice.length; i += pointsPerBar) {
+                        const chunk = dataSlice.slice(i, i + pointsPerBar);
+                        const sum = chunk.reduce((acc, val) => acc + val, 0);
+
+                        const timeForChunk = new Date(now.getTime() - ((offsetPoints + (rangePoints - (i + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
+                        chartData.push({ x: timeForChunk.valueOf(), y: sum });
+                    }
+                    timeUnit = 'day';
                 }
             }
             
