@@ -1,21 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>ESP32 Dashboard</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volume Measurements</title>
+    <script src="/chart.umd.min.js"></script>
+    <script src="/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --surface-color: #1a1a1a;
+            --primary-color: #007bff;
+            --primary-hover-color: #3395ff;
+            --text-color: #f0f0f0;
+            --text-muted-color: #888888;
+            --border-color: #2c2c2c;
+            --danger-color: #e74c3c;
+            --danger-hover-color: #c0392b;
+            --success-color: #2ecc71;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top */
+            min-height: 100vh;
+            padding: 2rem 1rem; /* Increased padding */
+            transition: background-color 0.3s;
+        }
+
+        .dashboard, .disconnected-container {
+            width: 100%;
+            max-width: 1200px; /* Increased max-width */
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .disconnected-container {
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            min-height: 60vh; /* Increased height */
+            padding: 2rem;
+            background-color: var(--surface-color);
+            border-radius: 18px;
+        }
+        
+        .disconnected-container h2 {
+            margin-bottom: 1.5rem;
+            color: var(--text-muted-color);
+            font-weight: 500;
+            font-size: 1.5rem; /* Larger font */
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h2 {
+            font-size: 2.25rem; /* Increased font size */
+            font-weight: 700;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem; /* Increased font size */
+            color: var(--text-muted-color);
+        }
+
+        .status-indicator {
+            width: 12px; /* Slightly larger */
+            height: 12px; /* Slightly larger */
+            border-radius: 50%;
+            background-color: var(--success-color);
+            transition: background-color 0.3s;
+        }
+        
+        .status-indicator.disconnected {
+            background-color: var(--danger-color);
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            padding: 2rem; /* Increased padding */
+            border-radius: 18px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .chart-container {
+            height: 55vh; /* Increased height */
+            min-height: 400px; /* Increased min-height */
+            position: relative;
+        }
+
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem; /* Increased gap */
+        }
+
+        button {
+            background-color: #252525;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 0.8rem 1.5rem; /* Increased padding */
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 1rem; /* Increased font size */
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 120px; /* Increased min-width */
+        }
+
+        button:hover {
+            background-color: #333;
+            border-color: var(--text-muted-color);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .control-group .range-btn.active {
+             background-color: var(--primary-color);
+             color: white;
+             border-color: var(--primary-color);
+        }
+        
+        #start-btn {
+            background-color: var(--success-color);
+            color: white;
+            border-color: var(--success-color);
+            padding: 1rem 2.5rem; /* Increased padding */
+            font-size: 1.2rem; /* Increased font size */
+        }
+        #start-btn:hover {
+            background-color: #27ae60;
+        }
+
+        .disconnect-btn {
+            background-color: transparent;
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .disconnect-btn:hover {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background-color: var(--surface-color);
+            padding: 2rem;
+            border-radius: 18px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        .modal-content h3 { font-size: 1.4rem; margin-bottom: 0.75rem; }
+        .modal-content p { color: var(--text-muted-color); margin-bottom: 1.5rem; }
+        .modal-actions { display: flex; gap: 1rem; }
+        .modal-actions button { flex: 1; }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 26, 26, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: 18px;
+        }
+        
+        .spinner {
+            width: 50px; /* Larger spinner */
+            height: 50px; /* Larger spinner */
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .date-display {
+            text-align: center;
+            color: var(--text-muted-color);
+            font-size: 1rem; /* Increased font size */
+            margin-top: 1rem; /* Increased margin */
+        }
+    </style>
 </head>
 <body>
-  <h1>ESP32 Dashboard</h1>
+    <!-- Main Dashboard View -->
+    <div class="dashboard" id="chart-view">
+        <div class="header">
+            <h2>Volume Measurements</h2>
+            <div class="connection-status">
+                <div id="status-indicator" class="status-indicator"></div>
+                <span id="status-text">Connected</span>
+            </div>
+        </div>
+        
+        <div class="card chart-container">
+            <div class="loading-overlay" id="chart-loading">
+                <div class="spinner"></div>
+            </div>
+            <canvas id="fluidChart"></canvas>
+            <div class="date-display" id="date-display"></div>
+        </div>
+        
+        <div class="card controls-panel">
+            <div class="control-group">
+                <button id="back-btn" onclick="scrollData(-1)">&larr; Back</button>
+                <button class="range-btn active" data-range="2" onclick="changeRange(2)">2 Hours</button>
+                <button class="range-btn" data-range="6" onclick="changeRange(6)">6 Hours</button>
+                <button class="range-btn" data-range="24" onclick="changeRange(24)">24 Hours</button>
+                <button class="range-btn" data-range="72" onclick="changeRange(72)">3 Days</button>
+                <button class="range-btn" data-range="168" onclick="changeRange(168)">7 Days</button>
+                <button id="next-btn" onclick="scrollData(1)">Next &rarr;</button>
+            </div>
+            <div class="control-group">
+                <button class="disconnect-btn" onclick="showDisconnectModal()">Disconnect</button>
+            </div>
+        </div>
+    </div>
 
-  <button id="on">Turn On</button>
-  <button id="off">Turn Off</button>
+    <!-- Disconnected/Start View -->
+    <div class="disconnected-container" id="disconnected-view">
+        <h2>Insert can be removed or inserted</h2>
+        <button id="start-btn" onclick="startApp()">Start</button>
+    </div>
 
-  <h2>24-Hour Data</h2>
-  <canvas id="myChart" width="600" height="300"></canvas>
+    <!-- Disconnect Confirmation Modal -->
+    <div id="disconnect-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Disconnect Device?</h3>
+            <p>Are you sure you want to disconnect from the device?</p>
+            <div class="modal-actions">
+                <button onclick="hideDisconnectModal()">Cancel</button>
+                <button class="disconnect-btn" onclick="disconnect()">Yes, Disconnect</button>
+            </div>
+        </div>
+    </div>
 
-  <!-- load the UMD build so Chart is available as a global -->
-  <script src="/chart.umd.min.js"></script>
-  <!-- then your script -->
-  <script src="/script.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>
