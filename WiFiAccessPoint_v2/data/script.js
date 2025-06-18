@@ -10,10 +10,17 @@
             168: 7   // 7 days: 7 bars (1 day each)
         };
 
+        // Urine output thresholds (ml/kg/hour)
+        const THRESHOLDS = {
+            GOOD: 0.5,
+            ADEQUATE: 0.3
+        };
+
         // --- STATE MANAGEMENT ---
         let currentRangeHours = 6; // Default view is now 6 hours
         let currentOffsetHours = 0; // Offset from the most recent data
         let masterData = []; // Store the full dataset from the device
+        let patientWeight = 70; // Default weight in kg
 
         // --- DOM ELEMENT REFERENCES ---
         const chartView = document.getElementById('chart-view');
@@ -24,8 +31,36 @@
         const nextBtn = document.getElementById('next-btn');
         const statusIndicator = document.getElementById('status-indicator');
         const statusText = document.getElementById('status-text');
+        const patientWeightInput = document.getElementById('patient-weight');
         const ctx = document.getElementById('fluidChart').getContext('2d');
         let chart;
+
+        // --- COLOR CALCULATION FUNCTIONS ---
+        function getBarColor(volume, timeSpanHours, weight) {
+            // Calculate ml/kg/hour rate
+            const ratePerHour = volume / (weight * timeSpanHours);
+            
+            if (ratePerHour >= THRESHOLDS.GOOD) {
+                return 'rgba(46, 204, 113, 0.7)'; // Green
+            } else if (ratePerHour >= THRESHOLDS.ADEQUATE) {
+                return 'rgba(243, 156, 18, 0.7)'; // Amber
+            } else {
+                return 'rgba(231, 76, 60, 0.7)'; // Red
+            }
+        }
+
+        function getBorderColor(volume, timeSpanHours, weight) {
+            // Calculate ml/kg/hour rate
+            const ratePerHour = volume / (weight * timeSpanHours);
+            
+            if (ratePerHour >= THRESHOLDS.GOOD) {
+                return 'rgba(46, 204, 113, 0.9)'; // Green
+            } else if (ratePerHour >= THRESHOLDS.ADEQUATE) {
+                return 'rgba(243, 156, 18, 0.9)'; // Amber
+            } else {
+                return 'rgba(231, 76, 60, 0.9)'; // Red
+            }
+        }
 
         // --- CHART INITIALIZATION ---
         function initChart() {
@@ -43,7 +78,15 @@
                                     const date = new Date(tooltipItems[0].raw.x);
                                     return date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
                                 },
-                                label: (context) => `Total Volume: ${context.parsed.y.toFixed(1)}`
+                                label: (context) => {
+                                    const volume = context.parsed.y;
+                                    const timeSpanHours = getTimeSpanForCurrentRange();
+                                    const rate = volume / (patientWeight * timeSpanHours);
+                                    return [
+                                        `Total Volume: ${volume.toFixed(1)} ml`,
+                                        `Rate: ${rate.toFixed(2)} ml/kg/hour`
+                                    ];
+                                }
                             }
                         }
                     },
@@ -60,14 +103,12 @@
                         },
                         y: {
                             beginAtZero: true,
-                            title: { display: true, text: 'Volume' },
+                            title: { display: true, text: 'Volume (ml)' },
                             grid: { color: 'rgba(255, 255, 255, 0.05)' }
                         }
                     },
                     datasets: {
                         bar: {
-                            backgroundColor: 'rgba(0, 123, 255, 0.7)',
-                            borderColor: 'rgba(0, 123, 255, 0.9)',
                             borderWidth: 1,
                             borderRadius: 4,
                             barPercentage: 0.9,
@@ -76,6 +117,15 @@
                     }
                 }
             });
+        }
+
+        function getTimeSpanForCurrentRange() {
+            // Return the time span each bar represents in hours
+            if (currentRangeHours === 6) return 0.25; // 15 minutes
+            if (currentRangeHours === 24) return 1; // 1 hour
+            if (currentRangeHours === 72) return 1; // 1 hour
+            if (currentRangeHours === 168) return 24; // 1 day
+            return 1;
         }
         
         // --- DATA FETCHING & CHART UPDATING ---
@@ -113,14 +163,19 @@
 
             let chartData = [];
             let timeUnit = 'hour';
-            const targetBars = BAR_COUNTS[currentRangeHours];
+            const timeSpanHours = getTimeSpanForCurrentRange();
 
             if (dataSlice.length > 0) {
                 if (currentRangeHours === 6) {
                     // 6 hours: Each bar is 15 minutes (24 bars total)
                     chartData = dataSlice.map((value, index) => {
                         const timeForPoint = new Date(now.getTime() - ((offsetPoints + (rangePoints - (index + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
-                        return { x: timeForPoint.valueOf(), y: value };
+                        return { 
+                            x: timeForPoint.valueOf(), 
+                            y: value,
+                            backgroundColor: getBarColor(value, timeSpanHours, patientWeight),
+                            borderColor: getBorderColor(value, timeSpanHours, patientWeight)
+                        };
                     });
                     timeUnit = 'hour';
                 } else if (currentRangeHours === 24) {
@@ -132,7 +187,12 @@
                         const sum = chunk.reduce((acc, val) => acc + val, 0);
 
                         const timeForChunk = new Date(now.getTime() - ((offsetPoints + (rangePoints - (i + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
-                        chartData.push({ x: timeForChunk.valueOf(), y: sum });
+                        chartData.push({ 
+                            x: timeForChunk.valueOf(), 
+                            y: sum,
+                            backgroundColor: getBarColor(sum, timeSpanHours, patientWeight),
+                            borderColor: getBorderColor(sum, timeSpanHours, patientWeight)
+                        });
                     }
                     timeUnit = 'hour';
                 } else if (currentRangeHours === 72) {
@@ -144,7 +204,12 @@
                         const sum = chunk.reduce((acc, val) => acc + val, 0);
 
                         const timeForChunk = new Date(now.getTime() - ((offsetPoints + (rangePoints - (i + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
-                        chartData.push({ x: timeForChunk.valueOf(), y: sum });
+                        chartData.push({ 
+                            x: timeForChunk.valueOf(), 
+                            y: sum,
+                            backgroundColor: getBarColor(sum, timeSpanHours, patientWeight),
+                            borderColor: getBorderColor(sum, timeSpanHours, patientWeight)
+                        });
                     }
                     timeUnit = 'hour';
                 } else if (currentRangeHours === 168) {
@@ -156,7 +221,12 @@
                         const sum = chunk.reduce((acc, val) => acc + val, 0);
 
                         const timeForChunk = new Date(now.getTime() - ((offsetPoints + (rangePoints - (i + 1))) * DATA_POINT_INTERVAL_MINS * 60 * 1000));
-                        chartData.push({ x: timeForChunk.valueOf(), y: sum });
+                        chartData.push({ 
+                            x: timeForChunk.valueOf(), 
+                            y: sum,
+                            backgroundColor: getBarColor(sum, timeSpanHours, patientWeight),
+                            borderColor: getBorderColor(sum, timeSpanHours, patientWeight)
+                        });
                     }
                     timeUnit = 'day';
                 }
@@ -229,6 +299,12 @@
         }
         
         async function startApp() {
+            // Get the weight from input
+            const weightInput = patientWeightInput.value;
+            if (weightInput && weightInput > 0) {
+                patientWeight = parseFloat(weightInput);
+            }
+
             try {
                 const response = await fetch('/H'); 
                 if (!response.ok) throw new Error('Callback to /H failed');
@@ -236,7 +312,7 @@
                 disconnectedView.style.display = 'none';
                 chartView.style.display = 'flex';
                 statusIndicator.classList.remove('disconnected');
-                statusText.textContent = 'Connected';
+                statusText.textContent = `Weight: ${patientWeight} kg`;
                 
                 await fetchAndUpdateChart(); 
             } catch(err) {
