@@ -18,6 +18,7 @@
             --danger-color: #e74c3c;
             --danger-hover-color: #c0392b;
             --success-color: #2ecc71;
+            --warning-color: #f39c12;
         }
 
         * {
@@ -62,6 +63,43 @@
             color: var(--text-muted-color);
             font-weight: 500;
             font-size: 1.5rem; 
+        }
+
+        .weight-input-container {
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .weight-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .weight-input-group label {
+            font-size: 1.1rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .weight-input-group input {
+            background-color: #252525;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            width: 100px;
+            text-align: center;
+        }
+
+        .weight-input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
         }
 
         .header {
@@ -235,13 +273,13 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         
         .date-display {
-    text-align: center;
-    color: var(--text-color);
-    font-size: 1.1rem;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-weight: 600;
-    margin-top: 5px;
-}
+            text-align: center;
+            color: var(--text-color);
+            font-size: 1.1rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 600;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -281,6 +319,13 @@
     <!-- Disconnected/Start View -->
     <div class="disconnected-container" id="disconnected-view">
         <h2>Insert can be removed or inserted</h2>
+        <div class="weight-input-container">
+            <div class="weight-input-group">
+                <label for="patient-weight">Enter patient weight:</label>
+                <input type="number" id="patient-weight" min="1" max="300" step="0.1" placeholder="70" />
+                <span>kg</span>
+            </div>
+        </div>
         <button id="start-btn" onclick="startApp()">Start</button>
     </div>
 
